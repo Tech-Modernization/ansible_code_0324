@@ -1,23 +1,33 @@
 #!/bin/bash
 
+# steps:
+#    set up cleanup routine
+#    accept and validate all CLI arguments
+#    list all SQS queue for cloudfront/elb log transport
+#    create splunk AWS add-on input config file
+#    create ansible playbook
+#    run ansible to copy the add-on input config file onto the target splunk servers and reload splunk config
+
 set -e
 set -o pipefail
-
+#    set up cleanup routine
 cleanup() {
   exit_code=$?
   rm -rf /tmp/playbook.yml
   exit $exit_code
 }
 
+trap cleanup INT TERM HUP KILL QUIT EXIT
 
-trap cleanup INT TERM
-
+#    accept and validate all CLI arguments
 show_usage () {
   cat <<EOF
 missing at least one argument.
 
 syntax:
-  $0 -r <aws region> -p <queue name prefix> -a <splunk aws account> -x <splunk index name> -i <interval in seconds> -b <sqs queue batch size> -h <splunk servers> -u <splunk_username> -w <splunk_password>
+  $0 -r <aws region> -p <queue name prefix> -a <aws account, as configured in Splunk AWS add-on> \\
+     -x <splunk index name> -i <interval in seconds> -b <sqs queue batch size> \\
+     -h <splunk servers, ',' delimited> -u <splunk_username, to reload splunk config with> -w <splunk_password>
 
 example:
   $0 -r us-east-1 -p access-access-log -a splunk -x main -i 300 -b 10 -h localhost -u sp_admin -w sp_pass1234
@@ -68,8 +78,10 @@ if [[ -z $aws_region ]] || [[ -z $queue_name_prefix ]] || [[ -z $aws_account ]] 
 fi
 
 rm -rf /tmp/input.config
-
+rm -rf /tmp/playbook.yml
+#    list all SQS queue for cloudfront/elb log transport
 queues=$(aws sqs list-queues --region $aws_region --queue-name-prefix $queue_name_prefix | jq ".QueueUrls[]" -r | grep -v "deadletter" | sort)
+#    create splunk AWS add-on input config file
 while IFS= read -r line
 do
   export queue_url=$line
@@ -81,13 +93,16 @@ do
     export decoder=ELBAccessLogs
     export sourcetype=aws:elb:accesslogs
   else
+    echo "unhandled log sourcetype for queue: $line"
     exit 1
   fi
   envsubst < input_template >>/tmp/input.config
 done <<< "$queues"
 
+#    create ansible playbook
 envsubst < playbook_template >/tmp/playbook.yml
 
+#    run ansible to copy the add-on input config file onto the target splunk server(s) and reload splunk config
 while IFS=, read -r line
 do
   if [[ $line -eq "localhost" ]]; then

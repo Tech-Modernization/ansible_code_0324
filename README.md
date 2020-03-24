@@ -23,7 +23,9 @@ Yimins-MacBook-Pro-2:ansible_code_0324 yiminzheng$ ./runme.sh
 missing at least one argument.
 
 syntax:
-  ./runme.sh -r <aws region> -p <queue name prefix> -a <splunk aws account> -x <splunk index name> -i <interval in seconds> -b <sqs queue batch size> -h <splunk servers> -u <splunk_username> -w <splunk_password>
+  ./runme.sh -r <aws region> -p <queue name prefix> -a <aws account, as configured in Splunk AWS add-on> \
+     -x <splunk index name> -i <interval in seconds> -b <sqs queue batch size> \
+     -h <splunk servers, ',' delimited> -u <splunk_username, to reload splunk config with> -w <splunk_password>
 
 example:
   ./runme.sh -r us-east-1 -p access-access-log -a splunk -x main -i 300 -b 10 -h localhost -u sp_admin -w sp_pass1234
