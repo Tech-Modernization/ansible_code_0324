@@ -1,13 +1,13 @@
-# Configure Splunk to get ELB and Cloudfront log through AWS SQS queues
+# Configure Splunk to get ELB and CloudFront log from AWS SQS queues
 
 # Background
-* AWS ELB and Cloudfront both can send their log to an S3 buckets
+* AWS ELB and CloudFront both can send their log to S3 buckets
 * An S3 bucket can be configured to post change events to an SQS queue
-* Splunk provides AWS add-on and parsers to ingest ELB and cloudfront logs via SQS queues
+* Splunk provides an AWS add-on and parsers to ingest ELB and CloudFront logs via SQS queues
 
 # Summary
 * Define a naming convention for SQS queues uses for ELB and CloudFront log transport, 
-* Run 'aws sqs list-queues' command to fetch all the relevant queues.
+* Run 'aws sqs list-queues' command to list all the relevant SQS queues.
 * Create Splunk AWS add-on configuration file based on discovered SQS queues.
 * Use anisble to deliver the AWS add-on configuration file to the Splunk server and trigger Splunk server to reload its AWS monitor configuration.
 
@@ -33,6 +33,8 @@ example:
 * The Splunk server already has AWS add-on installed , and an AWS account configured.
 * Dependencies such as ansible, jq, aws-cli installed in Jenkins, either through a pre-reqs script, or through Jenkins credentials.
 
-# Questions
+# TBD
 * How does Ansible authenticate for splunk server access?
 * What if there are other parties updating the same AWS add-on configuration file on the splunk serve?
+* Can improve on how to trigger splunk monitor configuration reload.
+
