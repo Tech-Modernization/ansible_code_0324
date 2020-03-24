@@ -18,6 +18,16 @@ For example: "access-log-mysite0034-cloudfront", "access-log-mysite0056-lb".
 
 # How to
 * Run this command and follow the prompt: ./runme.sh
+```
+Yimins-MacBook-Pro-2:ansible_code_0324 yiminzheng$ ./runme.sh 
+missing at least one argument.
+
+syntax:
+  ./runme.sh -r <aws region> -p <queue name prefix> -a <splunk aws account> -x <splunk index name> -i <interval in seconds> -b <sqs queue batch size> -h <splunk servers> -u <splunk_username> -w <splunk_password>
+
+example:
+  ./runme.sh -r us-east-1 -p access-access-log -a splunk -x main -i 300 -b 10 -h localhost -u sp_admin -w sp_pass1234
+```
 
 # Pre-reqs
 * The Splunk server already has AWS add-on installed , and an AWS account configured.
