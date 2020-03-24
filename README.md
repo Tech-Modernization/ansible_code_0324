@@ -12,12 +12,17 @@
 * Use anisble to deliver the AWS add-on configuration file to the Splunk server and trigger Splunk server to reload its AWS monitor configuration.
 
 # SQS queue naming convention
-Please follow this convention for related SQS queues: <queue-prefix>-xxxx-<log-type>.
-Where queue-prefix is a fixed prefix for all queue transporting ELB and CloudFront log to Splunk, and log-type is either 'lb', or 'cloudfront'.
+Please follow this convention when naming related SQS queues: <queue-prefix>-xxxx-<log-type>.
+Where queue-prefix is a fixed prefix for all queues transporting ELB and CloudFront logs to Splunk, and log-type is either 'lb', or 'cloudfront'.
 For example: "access-log-mysite0034-cloudfront", "access-log-mysite0056-lb".
 
 # How to
-* Run this command and follow prompt
-./runme.sh
+* Run this command and follow the prompt: ./runme.sh
 
+# Pre-reqs
+* The Splunk server already has AWS add-on installed , and an AWS account configured.
+* Dependencies such as ansible, jq, aws-cli installed in Jenkins, either through a pre-reqs script, or through Jenkins credentials.
 
+# Questions
+* How does Ansible authenticate for splunk server access?
+* What if there are other parties updating the same AWS add-on configuration file on the splunk serve?
