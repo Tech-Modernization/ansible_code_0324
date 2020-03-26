@@ -23,8 +23,18 @@ Where `queue-prefix` is a fixed prefix for all queues for ELB and CloudFront log
 * The queue name should not contain the word "deadletter".
 * Example queue names: `access-log-mysite0034-cloudfront-main`, `access-log-mysite0056-lb-main`.
 
-## How to
-* Run this command and follow the prompt: `./runme.sh`
+## Pre-reqs
+* The Splunk server already has Splunk Add-on for AWS installed.
+* The add-on for AWS has an AWS account configured, the account can access the SQS queues and download logs from the S3 buckets.
+* The SQS queues have been set up according to the agreed naming convention.
+
+## When to update configuration for SQS-based S3 inputs for Splunk Add-on for AWS, and how?
+* When a new SQS queue has been set up to notify Splunk of CloudFront/ELB log creation.
+* On a machine, using an account with sufficient access to:
+  * to list the AWS SQS queues via AWS CLI.
+  * to update and reload Splunk input configuration file on the Splunk server via Ansible.
+* Install dependencies such as ansible, jq, aws-cli onto this machine.
+* Run this command and follow the prompt: `./runme.sh`. Below is a test run:
 ```
 MyComputer:ansible_code_0324 myuid$ ./runme.sh 
 Missing at least one argument.
@@ -43,15 +53,6 @@ Example:
   ./runme.sh -r us-east-1,us-west-1 -p access-log -a splunk -i 300 -b 10 -h localhost -u sp_admin -w sp_pass1234
 ```
 
-## Pre-reqs
-* The Splunk server already has Splunk Add-on for AWS installed.
-* The add-on for AWS has an AWS account configured, the account can access the SQS queues and download logs from the S3 buckets.
-* Dependencies such as ansible, jq, aws-cli are present.
-* The user account running the script, or the EC2 instance profile of the host where this script is runnig, has AWS access to list SQS queues.
-* The SQS queues have been set up according to the agreed naming convention.
-
 ## TBD
 * How does Ansible authenticate for splunk server access?
 * What if there are other parties updating the same AWS add-on configuration file on the splunk server?
-* Can improve on how to trigger splunk monitor configuration reload, using RESTful API.
-
