@@ -22,15 +22,20 @@ trap cleanup INT TERM HUP KILL QUIT EXIT
 #    accept and validate all CLI arguments
 show_usage () {
   cat <<EOF
-missing at least one argument.
+Missing at least one argument.
 
-syntax:
-  $0 -r <aws region> -p <queue name prefix> -a <aws account, as configured in Splunk AWS add-on> \\
-     -x <splunk index name> -i <interval in seconds> -b <sqs queue batch size> \\
-     -h <splunk servers, ',' delimited> -u <splunk_username, to reload splunk config with> -w <splunk_password>
+Syntax:
+  ./runme.sh -r <aws regions, ',' delimited> \\
+     -p <queue name prefix> \\
+     -a <aws account, as configured in Splunk AWS add-on> \\
+     -i <interval in seconds> \\
+     -b <sqs queue batch size> \\
+     -h <splunk servers, ',' delimited> \\
+     -u <splunk_username, to reload splunk config with> \\
+     -w <splunk_password>
 
-example:
-  $0 -r us-east-1 -p access-access-log -a splunk -x main -i 300 -b 10 -h localhost -u sp_admin -w sp_pass1234
+Example:
+  $0 -r us-east-1,us-west-1 -p access-log -a splunk -i 300 -b 10 -h localhost -u sp_admin -w sp_pass1234
 EOF
   exit 1
 }
@@ -38,16 +43,13 @@ EOF
 while getopts "r:p:a:x:i:b:h:u:w:" OPTION; do
     case $OPTION in
     r)
-        export aws_region=$OPTARG
+        aws_regions=$OPTARG
         ;;
     p)
         queue_name_prefix=$OPTARG
         ;;
     a)
         export aws_account=$OPTARG
-        ;;
-    x)
-        export index=$OPTARG
         ;;
     i)
         export interval=$OPTARG
@@ -71,39 +73,51 @@ while getopts "r:p:a:x:i:b:h:u:w:" OPTION; do
     esac
 done
 
-if [[ -z $aws_region ]] || [[ -z $queue_name_prefix ]] || [[ -z $aws_account ]] \
-   || [[ -z $index ]] || [[ -z $interval ]] || [[ -z $batch_size ]] \
-   || [[ -z $splunk_hosts ]]; then
+if [[ -z $aws_regions ]] || [[ -z $queue_name_prefix ]] || [[ -z $aws_account ]] \
+   || [[ -z $interval ]] || [[ -z $batch_size ]] \
+   || [[ -z $splunk_hosts ]] || [[ -z $splunk_username ]] \
+   || [[ -z $splunk_username ]]; then
   show_usage
 fi
 
 rm -rf /tmp/input.config
 rm -rf /tmp/playbook.yml
-#    list all SQS queue for cloudfront/elb log transport
-queues=$(aws sqs list-queues --region $aws_region --queue-name-prefix $queue_name_prefix | jq ".QueueUrls[]" -r | grep -v "deadletter" | sort)
-#    create splunk AWS add-on input config file
-while IFS= read -r line
+
+# reformat variable to use \n for item delimiter
+aws_regions=$(echo "$aws_regions" | tr ',' '\n' | sort)
+splunk_hosts=$(echo "$splunk_hosts" | tr ',' '\n')
+
+while IFS= read -r aws_region
 do
-  export queue_url=$line
-  export input_name=$(echo "$line" | awk -F/ '{print $4"-"$5}' | sed "s/^[[:alnum:]_-]//g")
-  if [[ $line =~ cloudfront$ ]]; then
-    export decoder=CloudFrontAccessLogs
-    export sourcetype=aws:cloudfront:accesslogs
-  elif [[ $line =~ lb$ ]]; then
-    export decoder=ELBAccessLogs
-    export sourcetype=aws:elb:accesslogs
-  else
-    echo "unhandled log sourcetype for queue: $line"
-    exit 1
-  fi
-  envsubst < input_template >>/tmp/input.config
-done <<< "$queues"
+  #    list all SQS queue for cloudfront/elb log transport
+  queues=$(aws sqs list-queues --region $aws_region --queue-name-prefix $queue_name_prefix | jq ".QueueUrls[]" -r | grep -v "deadletter" | sort)
+  #    create splunk AWS add-on input config file
+  while IFS= read -r queue_url
+  do
+    export aws_region
+    export queue_url
+    export input_name=$(echo "$queue_url" | awk -F/ '{print $4"-"$5}' | sed "s/[^[:alnum:]_-]//g")
+    export index=$(echo "$input_name" | awk -F- '{print $NF}')
+    log_source_type=$(echo "$input_name" | awk -F- '{print $(NF-1)}')
+    if [[ "$log_source_type" == "cloudfront" ]]; then
+      export decoder=CloudFrontAccessLogs
+      export sourcetype=aws:cloudfront:accesslogs
+    elif [[ "$log_source_type" == "lb" ]]; then
+      export decoder=ELBAccessLogs
+      export sourcetype=aws:elb:accesslogs
+    else
+      echo "unhandled log sourcetype for queue: $queue_url"
+      exit 1
+    fi
+    envsubst < input_template >>/tmp/input.config
+  done <<< "$queues"
+done <<< "$aws_regions"
 
 #    create ansible playbook
 envsubst < playbook_template >/tmp/playbook.yml
 
 #    run ansible to copy the add-on input config file onto the target splunk server(s) and reload splunk config
-while IFS=, read -r line
+while IFS= read -r line
 do
   if [[ $line -eq "localhost" ]]; then
     ansible-playbook --connection=local --inventory $line, /tmp/playbook.yml
@@ -111,5 +125,3 @@ do
     ansible-playbook --inventory $line, /tmp/playbook.yml
   fi
 done <<< "$splunk_hosts"
-
-
